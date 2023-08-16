@@ -1,0 +1,65 @@
+---
+title: "Introduction"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Introduction}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup, warning=FALSE, message=FALSE}
+library(binomialConvolution)
+library(plotly)
+set.seed(42)
+```
+
+A binomial convolution distribution or simply $BC(\mathbf{M}, \mathbf{p})$, where $\mathbf{M} = [M_1, \cdots, M_J]$ and $\mathbf{p} = [p_1, \cdots, p_J]$ is the distribution of a sum of a series of independently but not necessarily identically distributed binomial random variables. In other words, $Y \sim BC(\mathbf{M}, \mathbf{p})$ iff $Y = \sum_{j=1}^J X_j$, where $X_j \sim Binomial(M_j, p_j)$. 
+
+## Simulation
+
+Before we dive into the details, let's first simulate some BC RVs to see what they look like.
+
+```{r}
+N = 1000
+n_trials = c(10, 20, 30)
+success_probs = c(0.1, 0.2, 0.3)
+J = length(n_trials)
+Y = numeric(N)
+for(n in 1 : N)
+{
+  temp = 0
+  for(j in 1 : J)
+  {
+    temp = temp + rbinom(n=1, 
+                         size=n_trials[j],
+                         prob=success_probs[j])
+  }
+  Y[n] = temp
+}
+```
+
+We have implemented this function (of course in a more efficient way) in our package. To simulate, use the following
+
+```{r}
+Y1 = simulate_binomial_convolution(n_samples=N,
+                                   n_trials=n_trials,
+                                   success_probs=success_probs)
+```
+
+```{r, echo=FALSE, fig.show='hold',out.width="49%", out.height="49%"}
+par(mar = c(4, 4, .1, .1))
+hist(Y)
+hist(Y1)
+```
+
+## Generating Functions
+
+
+
