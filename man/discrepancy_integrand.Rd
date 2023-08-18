@@ -4,12 +4,12 @@
 \alias{discrepancy_integrand}
 \title{The integrand of the final discrepancy function}
 \usage{
-discrepancy_integrand(theoretical_cgf, empirical_cgf, weight_function)
+discrepancy_integrand(theoretical_gf, empirical_gf, weight_function)
 }
 \arguments{
-\item{theoretical_cgf}{The theoretical cumulant generating function}
+\item{theoretical_gf}{The theoretical generating function (MGF OR CGF)}
 
-\item{empirical_cgf}{The empirical estimator of the cgf}
+\item{empirical_gf}{The empirical estimator of the gf (MGF OR CGF)}
 
 \item{weight_function}{A weighting function that ensures the convergence of the integral}
 }

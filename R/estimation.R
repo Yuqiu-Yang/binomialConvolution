@@ -6,20 +6,29 @@ library(plotly)
 objective_function_1 <- function(success_probs,
                                  n_trials,
                                  samples,
+                                 mode = "mgf",
                                  weight_function=function(s){return(exp(-s^2))},
                                  lower_limit=-5,
                                  upper_limit=5)
 {
-  ecgf = empirical_cgf(samples = samples)
-  cgf = theoretical_cgf(n_trials = n_trials,
-                        success_probs = success_probs)
-  integrand = discrepency_integrand(theoretical_cgf=cgf,
-                                    empirical_cgf=ecgf,
+  if(mode == "mgf")
+  {
+    egf = empirical_mgf(samples = samples)
+    gf = theoretical_mgf(n_trials = n_trials,
+                         success_probs = success_probs)
+  }else{
+    egf = empirical_cgf(samples = samples)
+    gf = theoretical_cgf(n_trials = n_trials,
+                          success_probs = success_probs)
+  }
+
+  integrand = discrepancy_integrand(theoretical_gf=gf,
+                                    empirical_gf=egf,
                                     weight_function=weight_function)
-  discrepency = compute_discrepency(integrand=integrand,
+  discrepancy = compute_discrepancy(integrand=integrand,
                                     lower_limit=lower_limit,
                                     upper_limit=upper_limit)
-  return(discrepency)
+  return(discrepancy)
 }
 
 

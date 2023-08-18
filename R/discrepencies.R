@@ -3,18 +3,18 @@
 #' This function returns the integrand of the discrepancy function
 #' given the theoretical generating function, its empirical
 #' estimator, and a weight function
-#' @param theoretical_cgf The theoretical cumulant generating function
-#' @param empirical_cgf The empirical estimator of the cgf
+#' @param theoretical_gf The theoretical generating function (MGF OR CGF)
+#' @param empirical_gf The empirical estimator of the gf (MGF OR CGF)
 #' @param weight_function A weighting function that ensures the convergence of the integral
 #' @return The integrand of the discrepancy function
 #' @export
-discrepancy_integrand <- function(theoretical_cgf,
-                                  empirical_cgf,
+discrepancy_integrand <- function(theoretical_gf,
+                                  empirical_gf,
                                   weight_function)
 {
   integrand <- function(s)
   {
-    return((theoretical_cgf(s) - empirical_cgf(s))^2 * weight_function(s))
+    return((theoretical_gf(s) - empirical_gf(s))^2 * weight_function(s))
   }
   return(integrand)
 }
