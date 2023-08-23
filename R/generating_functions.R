@@ -38,6 +38,57 @@ binomial_cgf <- function(n_trials,
 }
 
 
+#' First order derivative of the cumulant generating function of a binomial distribution
+#'
+#' This function returns the derivative of the CGF of a binomial distribution
+#' given the number of trials and probability of success
+#'
+#' @param n_trials The number of trials
+#' @param success_prob The probability of success
+#' @return The derivative of the CGF of the specified binomial distribution
+#' @export
+d_binomial_cgf <- function(n_trials,
+                           success_prob)
+{
+  dcgf <- function(s)
+  {
+    if(s >= 0)
+    {
+      return(n_trials * success_prob / ((1-success_prob)*exp(-s) + success_prob))
+    }else{
+      return(n_trials * success_prob * exp(s) / ((1-success_prob) + success_prob * exp(s)))
+    }
+  }
+  return(Vectorize(dcgf, vectorize.args = "s"))
+}
+
+
+#' Second order derivative of the cumulant generating function of a binomial distribution
+#'
+#' This function returns the second order derivative of the CGF of a binomial distribution
+#' given the number of trials and probability of success
+#'
+#' @param n_trials The number of trials
+#' @param success_prob The probability of success
+#' @return The second order derivative of the CGF of the specified binomial distribution
+#' @export
+dd_binomial_cgf <- function(n_trials,
+                            success_prob)
+{
+  ddcgf <- function(s)
+  {
+    if(s >=0)
+    {
+      temp = success_prob / ((1-success_prob)*exp(-s) + success_prob)
+    }else{
+      temp = success_prob * exp(s) / ((1-success_prob) + success_prob * exp(s))
+    }
+    return(n_trials * temp * (1-temp))
+  }
+  return(Vectorize(ddcgf, vectorize.args = "s"))
+}
+
+
 #' Moment generating function of a Binomial Convolution distribution
 #'
 #' This function returns the MGF of a Binomial Convolution distribution
@@ -140,4 +191,144 @@ empirical_cgf <- function(samples)
     return(log(emgf(s)))
   }
   return(Vectorize(cgf, vectorize.args = "s"))
+}
+
+
+#' First order derivative of the cumulant generating function of a Binomial Convolution distribution
+#'
+#' This function returns the derivative of the CGF of a Binomial Convolution distribution
+#' given the number of trials and the success probabilities
+#' @param n_trials A vector of positive integers each standing for the number of trials of one component
+#' @param success_probs A vector of floats between 0 and 1 each standing for the probability of success of one component
+#' @return The derivative of the CGF of the specified binomial convolution distribution
+#' @export
+theoretical_dcgf <- function(n_trials,
+                             success_probs)
+{
+  n_components = length(n_trials)
+  dcgf_list = vector(mode="list",
+                     length=n_components)
+  for(component in 1 : n_components)
+  {
+    dcgf_list[[component]] = local({n_trials = n_trials[component];
+                                    success_prob=success_probs[component];
+                                    d_binomial_cgf(n_trials=n_trials,
+                                                   success_prob=success_prob)})
+  }
+
+  dcgf <- function(s)
+  {
+    result = 0
+    for(component in 1 : n_components)
+    {
+      result = result + dcgf_list[[component]](s)
+    }
+    return(result)
+  }
+  return(Vectorize(dcgf, vectorize.args = "s"))
+}
+
+
+#' Second order derivative of the cumulant generating function of a Binomial Convolution distribution
+#'
+#' This function returns the second order derivative of the CGF of a Binomial Convolution distribution
+#' given the number of trials and the success probabilities
+#' @param n_trials A vector of positive integers each standing for the number of trials of one component
+#' @param success_probs A vector of floats between 0 and 1 each standing for the probability of success of one component
+#' @return The second order derivative of the CGF of the specified binomial convolution distribution
+#' @export
+theoretical_ddcgf <- function(n_trials,
+                              success_probs)
+{
+  n_components = length(n_trials)
+  ddcgf_list = vector(mode="list",
+                      length=n_components)
+  for(component in 1 : n_components)
+  {
+    ddcgf_list[[component]] = local({n_trials = n_trials[component];
+                                     success_prob=success_probs[component];
+                                     dd_binomial_cgf(n_trials=n_trials,
+                                                     success_prob=success_prob)})
+  }
+
+  ddcgf <- function(s)
+  {
+    result = 0
+    for(component in 1 : n_components)
+    {
+      result = result + ddcgf_list[[component]](s)
+    }
+    return(result)
+  }
+  return(Vectorize(ddcgf, vectorize.args = "s"))
+}
+
+#' The first six cumulants of a binomial distribution
+#'
+#' This function returns the first six cumulants of a
+#' binomial distribution given the number of trials
+#' and the success probability
+#' @param n_trials A positive integer standing for the number of trials
+#' @param success_prob A floats between 0 and 1 standing for the probability of success
+#' @return The first six cumulants of the specified binomial distribution
+#' @export
+binomial_cumulants <- function(n_trials,
+                               success_prob)
+{
+  k1 = n_trials * success_prob
+  k2 = n_trials * success_prob * (1 - success_prob)
+  k3 = n_trials * success_prob * (1 - success_prob) * (1 - 2 * success_prob)
+  k4 = n_trials * success_prob * (1 - success_prob) * (1 - 6 * success_prob * (1 - success_prob))
+  k5 = n_trials * success_prob * (1 - success_prob) * (1 - 2 * success_prob) * (1 - 12 * success_prob + 12 * success_prob^2)
+  k6 = n_trials * success_prob * (1 - success_prob) * (1 - 30 * success_prob + 150 * success_prob^2 - 240 * success_prob^3 + 120 * success_prob^4)
+  return(c(k1, k2, k3, k4, k5, k6))
+}
+
+
+#' The first six cumulants of a binomial convolution distribution
+#'
+#' This function returns the first six cumulants of a
+#' binomial covolution distribution given the number of trials
+#' and the success probabilities
+#' @param n_trials A vector of positive integers each standing for the number of trials of one component
+#' @param success_probs A vector of floats between 0 and 1 each standing for the probability of success of one component
+#' @return The first six cumulants of the specified binomial convolution distribution
+#' @export
+cumulants <- function(n_trials,
+                      success_probs)
+{
+  n_components = length(n_trials)
+
+  result = numeric(6)
+  for(component in 1 : n_components)
+  {
+    result = result + binomial_cumulants(n_trials=n_trials[component],
+                                         success_prob=success_probs[component])
+  }
+  return(result)
+}
+
+
+#' The first six moments about 0 of a binomial convolution distribution
+#'
+#' This function returns the first six moments about 0 of a
+#' binomial covolution distribution given the number of trials
+#' and the success probabilities
+#' @param n_trials A vector of positive integers each standing for the number of trials of one component
+#' @param success_probs A vector of floats between 0 and 1 each standing for the probability of success of one component
+#' @return The first six moments about 0 of the specified binomial convolution distribution
+#' @export
+moments <- function(n_trials,
+                    success_probs)
+{
+  k = cumulants(n_trials=n_trials,
+                success_probs=success_probs)
+  v1 = k[1]
+  v2 = k[2] + (k[1])^2
+  v3 = k[3] + 3 * k[2] * k[1] + (k[1])^3
+  v4 = k[4] + 4 * k[3] * k[1] + 3 * (k[2])^2 + 6 * (k[2]) * (k[1])^2 + (k[1])^4
+  v5 = k[5] + 5 * k[4] * k[1] + 10 * (k[3]) * (k[2]) + 10 * (k[3]) * (k[1])^2 + 15 * (k[2])^2 * (k[1]) + 10 * (k[2]) * (k[1])^3 + (k[1])^5
+  v6 = k[6] + 6 * k[5] * k[1] + 15 * (k[4]) * (k[2]) + 15 * (k[4]) * (k[1])^2 + 10 * (k[3])^2 + 60 * (k[3]) * (k[2]) * (k[1]) + 20 * (k[3]) * (k[1])^3 + 15 * (k[2])^3 + 45 * (k[2])^2 * (k[1])^2 + 15 * (k[2]) * (k[1])^4 + (k[1])^6
+
+  return(c(v1, v2, v3, v4, v5, v6))
 }

@@ -3,6 +3,22 @@ library(plotly)
 
 
 #' @export
+log_likelihood <- function(success_probs,
+                           n_trials,
+                           samples,
+                           computation_method='convolution')
+{
+  pmf = binomial_convolution_pmf(n_trials=n_trials,
+                                 success_probs=success_probs,
+                                 computation_method=computation_method)
+  l = mean(log(pmf(samples)))
+  return(l)
+}
+
+
+
+
+#' @export
 objective_function_1 <- function(success_probs,
                                  n_trials,
                                  samples,
