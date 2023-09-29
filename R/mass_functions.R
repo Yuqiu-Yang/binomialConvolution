@@ -22,6 +22,53 @@ make_pmf <- function(pmf_vector)
   return(Vectorize(pmf, vectorize.args = "s"))
 }
 
+
+#' Computes some key quantities in the DFT
+#'
+#' This function computes some key quantities used repeatedly
+#' in the DFT computation.
+#' @param n_trials A vector of positive integers each standing for the number of trials of one component
+#' @param success_probs A vector of floats between 0 and 1 each standing for the probability of success of one component
+#' @return A list of quantities used in DFT computation
+#' @export
+dft_helper <- function(n_trials,
+                       success_probs)
+{
+  sum_trials = sum(n_trials)
+  n_components = length(n_trials)
+  omega = 2*pi/(1+sum_trials)
+  x_matrix = dx_matrix = ddx_matrix = matrix(0+0*1i,
+                                            nrow=1+sum_trials,
+                                            ncol=n_components)
+  for(l in 0 : sum_trials)
+  {
+    for(j in 1 : n_components)
+    {
+      pj = success_probs[j]
+      Mj = n_trials[j]
+      x_matrix[l+1, j] = (1-pj+pj*exp(1i*omega*l))^(Mj)
+      dx_matrix[l+1, j] = exp(1i*omega*l)-1
+      if(Mj > 1)
+      {
+        dx_matrix[l+1, j] = dx_matrix[l+1, j] * Mj * ((1-pj+pj*exp(1i*omega*l))^(Mj-1))
+      }
+      ddx_matrix[l+1, j] = (exp(1i*omega*l)-1)^2
+      if(Mj < 2)
+      {
+        ddx_matrix[l+1, j] = 0 + 0*1i
+      }else if(Mj == 2){
+        ddx_matrix[l+1, j] = ddx_matrix[l+1, j] * (Mj * (Mj-1)) * ((1-pj+pj*exp(1i*omega*l))^(Mj-2))
+      }else{
+        ddx_matrix[l+1, j] = ddx_matrix[l+1, j] * 2
+      }
+    }
+  }
+  return(list(x=x_matrix,
+              dx=dx_matrix,
+              ddx=ddx_matrix))
+}
+
+
 #' Use convolution to compute the exact pmf of a binomial convolution distribution
 #'
 #' This function uses convolution to compute the pmf of a specified
@@ -253,6 +300,39 @@ approximate_pmf_kolmogorov <- function(n_trials,
 }
 
 
+#' Use discrete fourier transform to compute the exact pmf of a binomial convolution distribution
+#'
+#' This function uses dft to compute the pmf of a specified
+#' binomial convolution distribution
+#' @param n_trials A vector of positive integers each standing for the number of trials of one component
+#' @param success_probs A vector of floats between 0 and 1 each standing for the probability of success of one component
+#' @return The pmf of the specified binomial convolution distribution
+#' @export
+exact_pmf_dft <- function(n_trials,
+                          success_probs)
+{
+  sum_trials = sum(n_trials)
+  n_components = length(n_trials)
+
+  omega = 2*pi / (sum_trials+1)
+
+  x_list = dft_helper(n_trials=n_trials,
+                      success_probs=success_probs)
+  temp_matrix = x_list$x
+  x = apply(temp_matrix, MARGIN=1, FUN=prod)
+  pmf_vector = numeric(1+sum_trials)
+  l = 0 : sum_trials
+  for(s in 0 : sum_trials)
+  {
+    pmf_vector[s+1] = Re(mean(x*exp(-1i * omega * s * l)))
+  }
+
+  # pmf_vector = pmf_vector/sum(pmf_vector)
+  pmf = make_pmf(pmf_vector=pmf_vector)
+  return(pmf)
+}
+
+
 #' The pmf of a binomial convolution distribution
 #'
 #' This function computes the pmf of a specified
@@ -279,9 +359,13 @@ binomial_convolution_pmf <- function(n_trials,
   }else if(computation_method == "kolmogorov"){
     pmf = approximate_pmf_kolmogorov(n_trials=n_trials,
                                      success_probs=success_probs)
+  }else if(computation_method == "dft"){
+    pmf = exact_pmf_dft(n_trials=n_trials,
+                        success_probs=success_probs)
   }else{
     stop("Unknown method. Has to be one of 'convolution', 'recursive', 'saddlepoint', 'kolmogorov'")
   }
   return(pmf)
 }
+
 

@@ -52,3 +52,6 @@ rsconnect/
 # Desktop file
 .DS_Store
 inst/doc
+presentation/
+data/
+
