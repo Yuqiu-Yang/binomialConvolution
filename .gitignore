@@ -53,5 +53,7 @@ rsconnect/
 .DS_Store
 inst/doc
 presentation/
+sample_size/
 data/
+summary/
 

@@ -38,6 +38,26 @@ binomial_cgf <- function(n_trials,
 }
 
 
+#' Characteristic function of a binomial distribution
+#'
+#' This function returns the CF of a binomial distribution
+#' given the number of trials and probability of success
+#'
+#' @param n_trials The number of trials
+#' @param success_prob The probability of success
+#' @return The CF of the specified binomial distribution
+#' @export
+binomial_cf <- function(n_trials,
+                        success_prob)
+{
+  cf <- function(s)
+  {
+    return((1-success_prob + success_prob * exp(1i*s))^n_trials)
+  }
+  return(Vectorize(cf, vectorize.args = "s"))
+}
+
+
 #' First order derivative of the cumulant generating function of a binomial distribution
 #'
 #' This function returns the derivative of the CGF of a binomial distribution
@@ -86,6 +106,41 @@ dd_binomial_cgf <- function(n_trials,
     return(n_trials * temp * (1-temp))
   }
   return(Vectorize(ddcgf, vectorize.args = "s"))
+}
+
+
+#' Characteristic function of a Binomial Convolution distribution
+#'
+#' This function returns the CF of a Binomial Convolution distribution
+#' given the number of trials and the success probabilities
+#' @param n_trials A vector of positive integers each standing for the number of trials of one component
+#' @param success_probs A vector of floats between 0 and 1 each standing for the probability of success of one component
+#' @return The CF of the specified binomial convolution distribution
+#' @export
+theoretical_cf <- function(n_trials,
+                           success_probs)
+{
+  n_components = length(n_trials)
+  cf_list = vector(mode="list",
+                   length=n_components)
+  for(component in 1 : n_components)
+  {
+    cf_list[[component]] = local({n_trials = n_trials[component];
+                                  success_prob=success_probs[component];
+                                  binomial_cf(n_trials=n_trials,
+                                              success_prob=success_prob)})
+  }
+
+  cf <- function(s)
+  {
+    result = 1
+    for(component in 1 : n_components)
+    {
+      result = result * cf_list[[component]](s)
+    }
+    return(result)
+  }
+  return(Vectorize(cf, vectorize.args = "s"))
 }
 
 
@@ -138,6 +193,23 @@ empirical_mgf <- function(samples)
     return(mean(exp(s * samples)))
   }
   return(Vectorize(mgf, vectorize.args = "s"))
+}
+
+
+#' Empirical estimates of the CF of a Binomial Convolution distribution
+#'
+#' This function returns an empirical estimator of the CF of
+#' a binomial convolution distribution given a set of samples
+#' @param samples A vector of IID samples
+#' @return The ECF of a binomial convolution distribution
+#' @export
+empirical_cf <- function(samples)
+{
+  cf <- function(s)
+  {
+    return(mean(exp(1i*s * samples)))
+  }
+  return(Vectorize(cf, vectorize.args = "s"))
 }
 
 
@@ -318,8 +390,8 @@ cumulants <- function(n_trials,
 #' @param success_probs A vector of floats between 0 and 1 each standing for the probability of success of one component
 #' @return The first six moments about 0 of the specified binomial convolution distribution
 #' @export
-moments <- function(n_trials,
-                    success_probs)
+non_central_moments <- function(n_trials,
+                                success_probs)
 {
   k = cumulants(n_trials=n_trials,
                 success_probs=success_probs)
@@ -329,6 +401,31 @@ moments <- function(n_trials,
   v4 = k[4] + 4 * k[3] * k[1] + 3 * (k[2])^2 + 6 * (k[2]) * (k[1])^2 + (k[1])^4
   v5 = k[5] + 5 * k[4] * k[1] + 10 * (k[3]) * (k[2]) + 10 * (k[3]) * (k[1])^2 + 15 * (k[2])^2 * (k[1]) + 10 * (k[2]) * (k[1])^3 + (k[1])^5
   v6 = k[6] + 6 * k[5] * k[1] + 15 * (k[4]) * (k[2]) + 15 * (k[4]) * (k[1])^2 + 10 * (k[3])^2 + 60 * (k[3]) * (k[2]) * (k[1]) + 20 * (k[3]) * (k[1])^3 + 15 * (k[2])^3 + 45 * (k[2])^2 * (k[1])^2 + 15 * (k[2]) * (k[1])^4 + (k[1])^6
+
+  return(c(v1, v2, v3, v4, v5, v6))
+}
+
+
+#' The first six central moments of a binomial convolution distribution
+#'
+#' This function returns the first six central moments of a
+#' binomial covolution distribution given the number of trials
+#' and the success probabilities
+#' @param n_trials A vector of positive integers each standing for the number of trials of one component
+#' @param success_probs A vector of floats between 0 and 1 each standing for the probability of success of one component
+#' @return The first six central moments of the specified binomial convolution distribution
+#' @export
+central_moments <- function(n_trials,
+                            success_probs)
+{
+  k = cumulants(n_trials=n_trials,
+                success_probs=success_probs)
+  v1 = 0
+  v2 = k[2]
+  v3 = k[3]
+  v4 = k[4] + 3 * k[2]^2
+  v5 = k[5] + 10 * (k[3]) * (k[2])
+  v6 = k[6] + 15 * (k[4]) * (k[2]) + 10 * (k[3])^2 + 15 * (k[2])^3
 
   return(c(v1, v2, v3, v4, v5, v6))
 }
