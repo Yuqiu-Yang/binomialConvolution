@@ -1,6 +1,181 @@
 library(plotly)
 
 
+is_legit_solution <- function(est)
+{
+  return(all((est >= 0) & (est <= 1)))
+}
+
+#' Method of moment for a 2-component Binomial Convolution model
+#'
+#' This function performs method of moment for a 2-component model
+#' @param samples A vector of samples generated from a binomial convolution model
+#' @param n_trials A vector specifying the number of trials
+#' @param order_success_probs A vector sepcifying the order (in descending order) of the success probabilities. If NULL, then no constraint is added. The estimate will be picked based on the 3rd central moment
+#' @returns A vector of estimated probabilities
+#' @export
+mom_2 <- function(samples,
+                  n_trials,
+                  order_success_probs = c(1, 2))
+{
+  mu = mean(samples)
+  sig2 = var(samples)
+
+  mu3 = mean((samples-mu)^3)
+
+  M1 = n_trials[1]
+  M2 = n_trials[2]
+  M = sum(n_trials)
+  d = M1 * M2 * ((M - mu) * mu - M * sig2)
+
+  p11 = (M1 * mu - sqrt(d)) / (M1 * M)
+  p12 = (M2 * mu + sqrt(d)) / (M2 * M)
+  p21 = (M1 * mu + sqrt(d)) / (M1 * M)
+  p22 = (M2 * mu - sqrt(d)) / (M2 * M)
+
+  est1 = c(p11, p12)
+  est2 = c(p21, p22)
+
+  if(is_legit_solution(est1) & is_legit_solution(est2))
+  {
+    # If both solutions are legitimate solutions
+    if(is.null(order_success_probs))
+    {
+      # If no constraint is speicfied
+      # we pick the solution based on the 3rd central moment
+      est1_central_moments = central_moments(n_trials=n_trials,
+                                             success_probs=est1)
+      mu3_abs_diff_1 = abs(est1_central_moments[3] - mu3)
+      est2_central_moments = central_moments(n_trials=n_trials,
+                                             success_probs=est2)
+      mu3_abs_diff_2 = abs(est2_central_moments[3] - mu3)
+
+      if(mu3_abs_diff_1 < mu3_abs_diff_2)
+      {
+        est = est1
+      }else{
+        est = est2
+      }
+    }else{
+      # If order is specified
+      if(est1[order_success_probs[1]] >= est1[order_success_probs[2]])
+      {
+        est = est1
+      }else if(est2[order_success_probs[1]] >= est2[order_success_probs[2]]){
+        est = est2
+      }else{
+        warning("No solution found")
+        est = NA
+      }
+    }
+  }else if(is_legit_solution(est1)){
+    warning("Only one solution is legit. Disregard the order constraint.")
+    est = est1
+  }else if(is_legit_solution(est2)){
+    warning("Only one solution is legit. Disregard the order constraint.")
+    est = est2
+  }else{
+    warning("No solution found")
+    est = NA
+  }
+  return(est)
+}
+
+
+par_to_probs <- function(par,
+                         order_success_probs = NULL)
+{
+  n_trials = length(par)
+  if(n_trials > 1)
+  {
+    par[2 : n_trials] = -exp(par[2 : n_trials])
+  }
+  success_probs_ordered = cumsum(par)
+  success_probs_ordered = 1/(1+exp(-success_probs_ordered))
+  success_probs = success_probs_ordered[order(order_success_probs)]
+  return(success_probs)
+}
+
+
+probs_to_par <- function(probs,
+                         order_success_probs = NULL)
+{
+  n_trials = length(probs)
+  probs = probs[order_success_probs]
+  logits = log(probs/(1-probs))
+  par = c(logits[1], log(-diff(logits)))
+  return(par)
+}
+
+
+#' @export
+mle <- function(samples,
+                n_trials,
+                computation_method='convolution',
+                return_mean=FALSE,
+                order_success_probs = NULL,
+                initial_probs = NULL)
+{
+  if(! is.null(initial_probs))
+  {
+    par = probs_to_par(probs=initial_probs,
+                       order_success_probs=order_success_probs)
+  }else{
+    par = rnorm(length(n_trials))
+  }
+
+  has_converged = FALSE
+  while(! has_converged)
+  {
+    results = optim(par=par,
+                    fn=log_likelihood_order_constraint,
+                    n_trials=n_trials,
+                    samples=samples,
+                    computation_method=computation_method,
+                    return_mean=return_mean,
+                    order_success_probs=order_success_probs,
+                    control=list(fnscale=-1),
+                    method = "BFGS")
+    if(results$convergence != 0)
+    {
+      par = results$par
+    }else{
+      has_converged = TRUE
+    }
+  }
+
+  # make sure the convergence message is 0
+  # try number of iterations to 9999
+  # number of function evaluations to 9999
+  # Better initial values
+  # Use nelder mead than other methods
+  # Until convergence
+  success_probs = par_to_probs(par=results$par,
+                               order_success_probs=order_success_probs)
+  return(success_probs)
+}
+
+
+#' @export
+log_likelihood_order_constraint <- function(par,
+                                            n_trials,
+                                            samples,
+                                            computation_method='convolution',
+                                            return_mean=FALSE,
+                                            order_success_probs = NULL)
+{
+  # The first entry of par is the largest probit of all the probs
+  success_probs = par_to_probs(par=par,
+                               order_success_probs=order_success_probs)
+  return(log_likelihood(success_probs=success_probs,
+                        n_trials=n_trials,
+                        samples=samples,
+                        computation_method=computation_method,
+                        return_mean=return_mean))
+}
+
+
+
 #' Compute log likelihood
 #'
 #' This function computes the log likelihood given
