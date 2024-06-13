@@ -1,113 +1,77 @@
-library(plotly)
+library(rootSolve)
 
-
-is_legit_solution <- function(est)
-{
-  return(all((est >= 0) & (est <= 1)))
-}
-
-#' Method of moment for a 2-component Binomial Convolution model
+#' Converts a vector of probabilities into parameters
 #'
-#' This function performs method of moment for a 2-component model
-#' @param samples A vector of samples generated from a binomial convolution model
-#' @param n_trials A vector specifying the number of trials
-#' @param order_success_probs A vector sepcifying the order (in descending order) of the success probabilities. If NULL, then no constraint is added. The estimate will be picked based on the 3rd central moment
-#' @returns A vector of estimated probabilities
+#' As a constraint optimization problem is in general more difficult
+#' than an unconstraint one, we convert probabilities to numbers on the real line.
+#' This function further considers the order. If there is no order imposed,
+#' the probabilities are converted via the logit function.
+#' On the other hand, the largest probability will be transformed via the logit.
+#' The rest will be converted via the log of difference in logits.
+#' @param probs A vector of probabilities
+#' @param order_success_probs A vector specifying the order in descending order of probabilities
+#' @return The transformed parameters of the vector of probabilities
 #' @export
-mom_2 <- function(samples,
-                  n_trials,
-                  order_success_probs = c(1, 2))
-{
-  mu = mean(samples)
-  sig2 = var(samples)
-
-  mu3 = mean((samples-mu)^3)
-
-  M1 = n_trials[1]
-  M2 = n_trials[2]
-  M = sum(n_trials)
-  d = M1 * M2 * ((M - mu) * mu - M * sig2)
-
-  p11 = (M1 * mu - sqrt(d)) / (M1 * M)
-  p12 = (M2 * mu + sqrt(d)) / (M2 * M)
-  p21 = (M1 * mu + sqrt(d)) / (M1 * M)
-  p22 = (M2 * mu - sqrt(d)) / (M2 * M)
-
-  est1 = c(p11, p12)
-  est2 = c(p21, p22)
-
-  if(is_legit_solution(est1) & is_legit_solution(est2))
-  {
-    # If both solutions are legitimate solutions
-    if(is.null(order_success_probs))
-    {
-      # If no constraint is speicfied
-      # we pick the solution based on the 3rd central moment
-      est1_central_moments = central_moments(n_trials=n_trials,
-                                             success_probs=est1)
-      mu3_abs_diff_1 = abs(est1_central_moments[3] - mu3)
-      est2_central_moments = central_moments(n_trials=n_trials,
-                                             success_probs=est2)
-      mu3_abs_diff_2 = abs(est2_central_moments[3] - mu3)
-
-      if(mu3_abs_diff_1 < mu3_abs_diff_2)
-      {
-        est = est1
-      }else{
-        est = est2
-      }
-    }else{
-      # If order is specified
-      if(est1[order_success_probs[1]] >= est1[order_success_probs[2]])
-      {
-        est = est1
-      }else if(est2[order_success_probs[1]] >= est2[order_success_probs[2]]){
-        est = est2
-      }else{
-        warning("No solution found")
-        est = NA
-      }
-    }
-  }else if(is_legit_solution(est1)){
-    warning("Only one solution is legit. Disregard the order constraint.")
-    est = est1
-  }else if(is_legit_solution(est2)){
-    warning("Only one solution is legit. Disregard the order constraint.")
-    est = est2
-  }else{
-    warning("No solution found")
-    est = NA
-  }
-  return(est)
-}
-
-
-par_to_probs <- function(par,
-                         order_success_probs = NULL)
-{
-  n_trials = length(par)
-  if(n_trials > 1)
-  {
-    par[2 : n_trials] = -exp(par[2 : n_trials])
-  }
-  success_probs_ordered = cumsum(par)
-  success_probs_ordered = 1/(1+exp(-success_probs_ordered))
-  success_probs = success_probs_ordered[order(order_success_probs)]
-  return(success_probs)
-}
-
-
 probs_to_par <- function(probs,
                          order_success_probs = NULL)
 {
-  n_trials = length(probs)
-  probs = probs[order_success_probs]
-  logits = log(probs/(1-probs))
-  par = c(logits[1], log(-diff(logits)))
+  if(is.null(order_success_probs))
+  {
+    par = log(probs/(1-probs))
+  }else{
+    n_trials = length(probs)
+    probs = probs[order_success_probs]
+    logits = log(probs/(1-probs))
+    par = c(logits[1], log(-diff(logits)))
+  }
   return(par)
 }
 
 
+#' Converts a vector of parameters into probabilities
+#'
+#' As a constraint optimization problem is in general more difficult
+#' than an unconstraint one, we convert probabilities to numbers on the real line.
+#' This function further considers the order. If there is no order imposed,
+#' the probabilities are computed via the inverse logit function.
+#' On the other hand, the first parameter will be transformed via the inverse logit.
+#' The rest will be converted via the cumulative sum of exp of difference in logits and reordered.
+#' @param par A vector of parameters
+#' @param order_success_probs A vector specifying the order in descending order of probabilities
+#' @return The transformed probabilities of the vector of parameters
+#' @export
+par_to_probs <- function(par,
+                         order_success_probs = NULL)
+{
+  if(is.null(order_success_probs))
+  {
+    success_probs = 1/(1+exp(-par))
+  }else{
+    n_trials = length(par)
+    if(n_trials > 1)
+    {
+      par[2 : n_trials] = -exp(par[2 : n_trials])
+    }
+    success_probs_ordered = cumsum(par)
+    success_probs_ordered = 1/(1+exp(-success_probs_ordered))
+    success_probs = success_probs_ordered[order(order_success_probs)]
+  }
+  return(success_probs)
+}
+
+
+#' MLE of a given sample from a Binomial Convolution distribution
+#'
+#' This function computes the MLE of a BC model given a sample and
+#' the number of trials for each component. It also allows the users
+#' to specify the order of probabilities as well as initial guesses.
+#' @param samples A sample from the BC distribution
+#' @param n_trials The number of trials for each component
+#' @param computation_method The method to compute the PMF
+#' @param return_mean If the results should be averaged over the sample
+#' @param order_success_probs A vector specifying the order in descending order of probabilities
+#' @param initial_probs The initial guess of the probabilies
+#' @return The MLE and the corresponding log likelihood
 #' @export
 mle <- function(samples,
                 n_trials,
@@ -118,12 +82,17 @@ mle <- function(samples,
 {
   if(! is.null(initial_probs))
   {
+    # If an inital guess is supplied
+    # we convert it to parameters
     par = probs_to_par(probs=initial_probs,
                        order_success_probs=order_success_probs)
   }else{
+    # If an initial guess is not supplied,
+    # we use random guesses
     par = rnorm(length(n_trials))
   }
 
+  # We run the optimization till it has converged
   has_converged = FALSE
   while(! has_converged)
   {
@@ -152,10 +121,21 @@ mle <- function(samples,
   # Until convergence
   success_probs = par_to_probs(par=results$par,
                                order_success_probs=order_success_probs)
-  return(success_probs)
+  return(list(probs=success_probs,
+              ll=results$value))
 }
 
 
+#' Computes the log likelihood with possible order constraint
+#'
+#' This function computes the log likelihood with order constraint
+#' @param par The parameters (not the probabilities)
+#' @param n_trials The number of trials for each component
+#' @param samples A sample from the BC distribution
+#' @param computation_method The method to compute the PMF
+#' @param return_mean If the results should be averaged over the sample
+#' @param order_success_probs A vector specifying the order in descending order of probabilities
+#' @return The log likelihood
 #' @export
 log_likelihood_order_constraint <- function(par,
                                             n_trials,
@@ -338,68 +318,71 @@ hessian <- function(success_probs,
 
 
 
-#' @export
-objective_function_1 <- function(success_probs,
-                                 n_trials,
-                                 samples,
-                                 mode = "mgf",
-                                 weight_function=function(s){return(exp(-s^2))},
-                                 lower_limit=-5,
-                                 upper_limit=5)
-{
-  if(mode == "mgf")
-  {
-    egf = empirical_mgf(samples = samples)
-    gf = theoretical_mgf(n_trials = n_trials,
-                         success_probs = success_probs)
-  }else{
-    egf = empirical_cgf(samples = samples)
-    gf = theoretical_cgf(n_trials = n_trials,
-                          success_probs = success_probs)
-  }
-
-  integrand = discrepancy_integrand(theoretical_gf=gf,
-                                    empirical_gf=egf,
-                                    weight_function=weight_function)
-  discrepancy = compute_discrepancy(integrand=integrand,
-                                    lower_limit=lower_limit,
-                                    upper_limit=upper_limit)
-  return(discrepancy)
-}
 
 
-#' @export
-visualize_objective_function_1 <- function(success_probs,
-                                           n_trials,
-                                           samples,
-                                           weight_function=function(s){return(exp(-s^2))},
-                                           lower_limit=-5,
-                                           upper_limit=5,
-                                           grid_p1=seq(0, 1, length.out=50),
-                                           grid_p2=seq(0, 1, length.out=50))
-{
-  n_p1 = length(grid_p1)
-  n_p2 = length(grid_p2)
-  dis_m = matrix(0, nrow=n_p1, ncol=n_p2)
-  for(i in 1 : n_p1)
-  {
-    for(j in 1 : n_p2)
-    {
-      dis_m[i,j] = objective_function(ps=c(grid_p1[i], grid_p2[j]),
-                                      n_trials=n_trials,
-                                      samples=samples,
-                                      weight_function=weight_function,
-                                      lower_limit=lower_limit,
-                                      upper_limit=upper_limit)
-    }
-  }
-  plot_ly(x=grid_p1,
-          y=grid_p2,
-          z=dis_m,
-          contours=list(z=list(show=TRUE,
-                               start=0,
-                               end=1,
-                               size=0.02,
-                               color="red"))) %>% add_surface()
-}
+# library(plotly)
+# #' @export
+# objective_function_1 <- function(success_probs,
+#                                  n_trials,
+#                                  samples,
+#                                  mode = "mgf",
+#                                  weight_function=function(s){return(exp(-s^2))},
+#                                  lower_limit=-5,
+#                                  upper_limit=5)
+# {
+#   if(mode == "mgf")
+#   {
+#     egf = empirical_mgf(samples = samples)
+#     gf = theoretical_mgf(n_trials = n_trials,
+#                          success_probs = success_probs)
+#   }else{
+#     egf = empirical_cgf(samples = samples)
+#     gf = theoretical_cgf(n_trials = n_trials,
+#                           success_probs = success_probs)
+#   }
+#
+#   integrand = discrepancy_integrand(theoretical_gf=gf,
+#                                     empirical_gf=egf,
+#                                     weight_function=weight_function)
+#   discrepancy = compute_discrepancy(integrand=integrand,
+#                                     lower_limit=lower_limit,
+#                                     upper_limit=upper_limit)
+#   return(discrepancy)
+# }
 
+
+# #' @export
+# visualize_objective_function_1 <- function(success_probs,
+#                                            n_trials,
+#                                            samples,
+#                                            weight_function=function(s){return(exp(-s^2))},
+#                                            lower_limit=-5,
+#                                            upper_limit=5,
+#                                            grid_p1=seq(0, 1, length.out=50),
+#                                            grid_p2=seq(0, 1, length.out=50))
+# {
+#   n_p1 = length(grid_p1)
+#   n_p2 = length(grid_p2)
+#   dis_m = matrix(0, nrow=n_p1, ncol=n_p2)
+#   for(i in 1 : n_p1)
+#   {
+#     for(j in 1 : n_p2)
+#     {
+#       dis_m[i,j] = objective_function(ps=c(grid_p1[i], grid_p2[j]),
+#                                       n_trials=n_trials,
+#                                       samples=samples,
+#                                       weight_function=weight_function,
+#                                       lower_limit=lower_limit,
+#                                       upper_limit=upper_limit)
+#     }
+#   }
+#   plot_ly(x=grid_p1,
+#           y=grid_p2,
+#           z=dis_m,
+#           contours=list(z=list(show=TRUE,
+#                                start=0,
+#                                end=1,
+#                                size=0.02,
+#                                color="red"))) %>% add_surface()
+# }
+#

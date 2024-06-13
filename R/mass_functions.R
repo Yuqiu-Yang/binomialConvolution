@@ -111,17 +111,20 @@ exact_pmf_convolution <- function(n_trials,
   convolution_table[,1] = dbinom(x=seq(0, sum_trials),
                                  size=n_trials[1],
                                  prob=success_probs[1])
-  # Then we add components one by one
-  for(component in 2 : n_components)
+  if(n_components > 1)
   {
-    for(s in 0 : sum_trials)
+    # Then we add components one by one
+    for(component in 2 : n_components)
     {
-      p = 0
-      for(i in 0 : s)
+      for(s in 0 : sum_trials)
       {
-        p = p + convolution_table[i+1, component-1] * individual_table[s-i+1, component]
+        p = 0
+        for(i in 0 : s)
+        {
+          p = p + convolution_table[i+1, component-1] * individual_table[s-i+1, component]
+        }
+        convolution_table[s+1, component] = p
       }
-      convolution_table[s+1, component] = p
     }
   }
   # The last column is the pmf desired
