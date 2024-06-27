@@ -1,28 +1,3 @@
-# Compute the Stirling number of the second type
-library(kStatistics)
-
-#' Converts a vector into a pmf
-#'
-#' This function takes a vector and turns it into
-#' a pmf whose support starts at 0
-#' @param pmf_vector A vector of probabilities
-#' @return A pmf whose support starts at 0
-#' @export
-make_pmf <- function(pmf_vector)
-{
-  pmf <- function(s)
-  {
-    if((s < 0) | (s > (length(pmf_vector)-1)))
-    {
-      return(0)
-    }else{
-      return(pmf_vector[s+1])
-    }
-  }
-  return(Vectorize(pmf, vectorize.args = "s"))
-}
-
-
 #' Computes some key quantities in the DFT
 #'
 #' This function computes some key quantities used repeatedly
@@ -100,7 +75,7 @@ exact_pmf_convolution <- function(n_trials,
     individual_table[,component] = dbinom(x=seq(0, sum_trials),
                                           size=n_trials[component],
                                           prob=success_probs[component])
-    individual_table[(n_trials[component]+2):(sum_trials+1), component]=0
+    # individual_table[(n_trials[component]+2):(sum_trials+1), component]=0
   }
 
   # convolution_table now stores the mass functions
@@ -281,7 +256,7 @@ approximate_pmf_kolmogorov <- function(n_trials,
       temp = 0
       for(i in j : k)
       {
-        c_kji = choose(k, i) * (-1)^j * factorial(j) * nStirling2(i,j)
+        c_kji = choose(k, i) * (-1)^j * factorial(j) * kStatistics::nStirling2(i,j)
         if(i == k)
         {
           temp = temp + c_kji
@@ -335,40 +310,5 @@ exact_pmf_dft <- function(n_trials,
   return(pmf)
 }
 
-
-#' The pmf of a binomial convolution distribution
-#'
-#' This function computes the pmf of a specified
-#' binomial convolution distribution
-#' @param n_trials A vector of positive integers each standing for the number of trials of one component
-#' @param success_probs A vector of floats between 0 and 1 each standing for the probability of success of one component
-#' @param computation_method The method to use to compute the pmf
-#' @return The pmf of the specified binomial convolution distribution
-#' @export
-binomial_convolution_pmf <- function(n_trials,
-                                     success_probs,
-                                     computation_method="convolution")
-{
-  if(computation_method == "convolution")
-  {
-    pmf = exact_pmf_convolution(n_trials=n_trials,
-                                success_probs=success_probs)
-  }else if(computation_method == "recursive"){
-    pmf = exact_pmf_recursive(n_trials=n_trials,
-                              success_probs=success_probs)
-  }else if(computation_method == "saddlepoint"){
-    pmf = approximate_pmf_saddlepoint(n_trials=n_trials,
-                                      success_probs=success_probs)
-  }else if(computation_method == "kolmogorov"){
-    pmf = approximate_pmf_kolmogorov(n_trials=n_trials,
-                                     success_probs=success_probs)
-  }else if(computation_method == "dft"){
-    pmf = exact_pmf_dft(n_trials=n_trials,
-                        success_probs=success_probs)
-  }else{
-    stop("Unknown method. Has to be one of 'convolution', 'recursive', 'saddlepoint', 'kolmogorov'")
-  }
-  return(pmf)
-}
 
 

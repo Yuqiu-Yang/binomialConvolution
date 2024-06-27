@@ -1,111 +1,126 @@
-#' Moment generating function of a binomial distribution
+#' Binomial Convolution random variables
 #'
-#' This function returns the MGF of a binomial distribution
-#' given the number of trials and probability of success
-#'
-#' @param n_trials The number of trials
-#' @param success_prob The probability of success
-#' @return The MGF of the specified binomial distribution
+#' @param n_samples Number of samples to be generated
+#' @param n_trials A vector of positive integers each standing for the number of trials of one component
+#' @param success_probs A vector of floats between 0 and 1 each standing for the probability of success of one component
+#' @return A vector of length n_samples
 #' @export
-binomial_mgf <- function(n_trials,
-                         success_prob)
+rbinomconv <- function(n,
+                       n_trials,
+                       success_probs)
 {
-  mgf <- function(s)
-  {
-    return((1-success_prob + success_prob * exp(s))^n_trials)
-  }
-  return(Vectorize(mgf, vectorize.args = "s"))
+  result = simulate_binomial_convolution(n_samples=n,
+                                         n_trials=n_trials,
+                                         success_probs=success_probs)
+  return(result)
 }
 
 
-#' Cumulant generating function of a binomial distribution
+#' Density of a Binomial Convolution
 #'
-#' This function returns the CGF of a binomial distribution
-#' given the number of trials and probability of success
-#'
-#' @param n_trials The number of trials
-#' @param success_prob The probability of success
-#' @return The CGF of the specified binomial distribution
+#' @param x Vector of quantiles
+#' @param n_samples Number of samples to be generated
+#' @param n_trials A vector of positive integers each standing for the number of trials of one component
+#' @param success_probs A vector of floats between 0 and 1 each standing for the probability of success of one component
+#' @return A vector of probabilities
 #' @export
-binomial_cgf <- function(n_trials,
-                         success_prob)
+dbinomconv <- function(x,
+                       n_trials,
+                       success_probs,
+                       log=FALSE)
 {
-  cgf <- function(s)
+  pmf = binomial_convolution_pmf(n_trials=n_trials,
+                                 success_probs=success_probs)
+  result = pmf(x)
+  if(log)
   {
-    return(n_trials * log(1-success_prob + success_prob * exp(s)))
+    result = log(result)
   }
-  return(Vectorize(cgf, vectorize.args = "s"))
+  return(result)
 }
 
 
-#' Characteristic function of a binomial distribution
+#' CDF of a Binomial Convolution
 #'
-#' This function returns the CF of a binomial distribution
-#' given the number of trials and probability of success
-#'
-#' @param n_trials The number of trials
-#' @param success_prob The probability of success
-#' @return The CF of the specified binomial distribution
+#' @param q Vector of quantiles
+#' @param n_samples Number of samples to be generated
+#' @param n_trials A vector of positive integers each standing for the number of trials of one component
+#' @param success_probs A vector of floats between 0 and 1 each standing for the probability of success of one component
+#' @return A vector of cumulative probabilities
 #' @export
-binomial_cf <- function(n_trials,
-                        success_prob)
+pbinomconv <- function(q,
+                       n_trials,
+                       success_probs,
+                       lower.tail=TRUE,
+                       log.p=FALSE)
 {
-  cf <- function(s)
-  {
-    return((1-success_prob + success_prob * exp(1i*s))^n_trials)
-  }
-  return(Vectorize(cf, vectorize.args = "s"))
+  pmf = binomial_convolution_pmf(n_trials=n_trials,
+                                 success_probs=success_probs)
+  s = cumsum(pmf(0:sum(n_trials)))
+  ind_neg = which(q < 0)
+  int_q = pmax(0, pmin(floor(q), sum(n_trials))) + 1
+  result = s[int_q]
+  result[ind_neg] = 0
+  return(result)
 }
 
 
-#' First order derivative of the cumulant generating function of a binomial distribution
+#' Inverse CDF of a Binomial Convolution
 #'
-#' This function returns the derivative of the CGF of a binomial distribution
-#' given the number of trials and probability of success
-#'
-#' @param n_trials The number of trials
-#' @param success_prob The probability of success
-#' @return The derivative of the CGF of the specified binomial distribution
+#' @param p Vector of probabilities
+#' @param n_samples Number of samples to be generated
+#' @param n_trials A vector of positive integers each standing for the number of trials of one component
+#' @param success_probs A vector of floats between 0 and 1 each standing for the probability of success of one component
+#' @return A vector of quantiles
 #' @export
-d_binomial_cgf <- function(n_trials,
-                           success_prob)
+qbinomconv <- function(p,
+                       n_trials,
+                       success_probs,
+                       lower.tail=TRUE,
+                       log.p=FALSE)
 {
-  dcgf <- function(s)
-  {
-    if(s >= 0)
-    {
-      return(n_trials * success_prob / ((1-success_prob)*exp(-s) + success_prob))
-    }else{
-      return(n_trials * success_prob * exp(s) / ((1-success_prob) + success_prob * exp(s)))
-    }
-  }
-  return(Vectorize(dcgf, vectorize.args = "s"))
+  pmf = binomial_convolution_pmf(n_trials=n_trials,
+                                 success_probs=success_probs)
+  p = prob_fence(p-.Machine$double.eps)
+  s = cumsum(pmf(0:sum(n_trials)))
+  result = v_last_which(x=s, p=p)-1
+  return(result)
 }
 
 
-#' Second order derivative of the cumulant generating function of a binomial distribution
+#' The pmf of a binomial convolution distribution
 #'
-#' This function returns the second order derivative of the CGF of a binomial distribution
-#' given the number of trials and probability of success
-#'
-#' @param n_trials The number of trials
-#' @param success_prob The probability of success
-#' @return The second order derivative of the CGF of the specified binomial distribution
+#' This function computes the pmf of a specified
+#' binomial convolution distribution
+#' @param n_trials A vector of positive integers each standing for the number of trials of one component
+#' @param success_probs A vector of floats between 0 and 1 each standing for the probability of success of one component
+#' @param computation_method The method to use to compute the pmf
+#' @return The pmf of the specified binomial convolution distribution
 #' @export
-dd_binomial_cgf <- function(n_trials,
-                            success_prob)
+binomial_convolution_pmf <- function(n_trials,
+                                     success_probs,
+                                     computation_method="convolution")
 {
-  ddcgf <- function(s)
+  if(computation_method == "convolution")
   {
-    if(s >=0)
-    {
-      temp = success_prob / ((1-success_prob)*exp(-s) + success_prob)
-    }else{
-      temp = success_prob * exp(s) / ((1-success_prob) + success_prob * exp(s))
-    }
-    return(n_trials * temp * (1-temp))
+    pmf = exact_pmf_convolution(n_trials=n_trials,
+                                success_probs=success_probs)
+  }else if(computation_method == "recursive"){
+    pmf = exact_pmf_recursive(n_trials=n_trials,
+                              success_probs=success_probs)
+  }else if(computation_method == "saddlepoint"){
+    pmf = approximate_pmf_saddlepoint(n_trials=n_trials,
+                                      success_probs=success_probs)
+  }else if(computation_method == "kolmogorov"){
+    pmf = approximate_pmf_kolmogorov(n_trials=n_trials,
+                                     success_probs=success_probs)
+  }else if(computation_method == "dft"){
+    pmf = exact_pmf_dft(n_trials=n_trials,
+                        success_probs=success_probs)
+  }else{
+    stop("Unknown method. Has to be one of 'convolution', 'recursive', 'saddlepoint', 'kolmogorov'")
   }
-  return(Vectorize(ddcgf, vectorize.args = "s"))
+  return(pmf)
 }
 
 
@@ -126,9 +141,9 @@ theoretical_cf <- function(n_trials,
   for(component in 1 : n_components)
   {
     cf_list[[component]] = local({n_trials = n_trials[component];
-                                  success_prob=success_probs[component];
-                                  binomial_cf(n_trials=n_trials,
-                                              success_prob=success_prob)})
+    success_prob=success_probs[component];
+    binomial_cf(n_trials=n_trials,
+                success_prob=success_prob)})
   }
 
   cf <- function(s)
@@ -161,9 +176,9 @@ theoretical_mgf <- function(n_trials,
   for(component in 1 : n_components)
   {
     mgf_list[[component]] = local({n_trials = n_trials[component];
-                                  success_prob=success_probs[component];
-                                  binomial_mgf(n_trials=n_trials,
-                                         success_prob=success_prob)})
+    success_prob=success_probs[component];
+    binomial_mgf(n_trials=n_trials,
+                 success_prob=success_prob)})
   }
 
   mgf <- function(s)
@@ -176,40 +191,6 @@ theoretical_mgf <- function(n_trials,
     return(result)
   }
   return(Vectorize(mgf, vectorize.args = "s"))
-}
-
-
-#' Empirical estimates of the MGF of a Binomial Convolution distribution
-#'
-#' This function returns an empirical estimator of the MGF of
-#' a binomial convolution distribution given a set of samples
-#' @param samples A vector of IID samples
-#' @return The EMGF of a binomial convolution distribution
-#' @export
-empirical_mgf <- function(samples)
-{
-  mgf <- function(s)
-  {
-    return(mean(exp(s * samples)))
-  }
-  return(Vectorize(mgf, vectorize.args = "s"))
-}
-
-
-#' Empirical estimates of the CF of a Binomial Convolution distribution
-#'
-#' This function returns an empirical estimator of the CF of
-#' a binomial convolution distribution given a set of samples
-#' @param samples A vector of IID samples
-#' @return The ECF of a binomial convolution distribution
-#' @export
-empirical_cf <- function(samples)
-{
-  cf <- function(s)
-  {
-    return(mean(exp(1i*s * samples)))
-  }
-  return(Vectorize(cf, vectorize.args = "s"))
 }
 
 
@@ -230,9 +211,9 @@ theoretical_cgf <- function(n_trials,
   for(component in 1 : n_components)
   {
     cgf_list[[component]] = local({n_trials = n_trials[component];
-                                  success_prob=success_probs[component];
-                                  binomial_cgf(n_trials=n_trials,
-                                               success_prob=success_prob)})
+    success_prob=success_probs[component];
+    binomial_cgf(n_trials=n_trials,
+                 success_prob=success_prob)})
   }
 
   cgf <- function(s)
@@ -243,24 +224,6 @@ theoretical_cgf <- function(n_trials,
       result = result + cgf_list[[component]](s)
     }
     return(result)
-  }
-  return(Vectorize(cgf, vectorize.args = "s"))
-}
-
-
-#' Empirical estimates of the CGF of a Binomial Convolution distribution
-#'
-#' This function returns an empirical estimator of the CGF of
-#' a binomial convolution distribution given a set of samples
-#' @param samples A vector of IID samples
-#' @return The ECGF of a binomial convolution distribution
-#' @export
-empirical_cgf <- function(samples)
-{
-  emgf = empirical_mgf(samples=samples)
-  cgf <- function(s)
-  {
-    return(log(emgf(s)))
   }
   return(Vectorize(cgf, vectorize.args = "s"))
 }
@@ -283,9 +246,9 @@ theoretical_dcgf <- function(n_trials,
   for(component in 1 : n_components)
   {
     dcgf_list[[component]] = local({n_trials = n_trials[component];
-                                    success_prob=success_probs[component];
-                                    d_binomial_cgf(n_trials=n_trials,
-                                                   success_prob=success_prob)})
+    success_prob=success_probs[component];
+    d_binomial_cgf(n_trials=n_trials,
+                   success_prob=success_prob)})
   }
 
   dcgf <- function(s)
@@ -318,9 +281,9 @@ theoretical_ddcgf <- function(n_trials,
   for(component in 1 : n_components)
   {
     ddcgf_list[[component]] = local({n_trials = n_trials[component];
-                                     success_prob=success_probs[component];
-                                     dd_binomial_cgf(n_trials=n_trials,
-                                                     success_prob=success_prob)})
+    success_prob=success_probs[component];
+    dd_binomial_cgf(n_trials=n_trials,
+                    success_prob=success_prob)})
   }
 
   ddcgf <- function(s)
@@ -333,27 +296,6 @@ theoretical_ddcgf <- function(n_trials,
     return(result)
   }
   return(Vectorize(ddcgf, vectorize.args = "s"))
-}
-
-#' The first six cumulants of a binomial distribution
-#'
-#' This function returns the first six cumulants of a
-#' binomial distribution given the number of trials
-#' and the success probability
-#' @param n_trials A positive integer standing for the number of trials
-#' @param success_prob A floats between 0 and 1 standing for the probability of success
-#' @return The first six cumulants of the specified binomial distribution
-#' @export
-binomial_cumulants <- function(n_trials,
-                               success_prob)
-{
-  k1 = n_trials * success_prob
-  k2 = n_trials * success_prob * (1 - success_prob)
-  k3 = n_trials * success_prob * (1 - success_prob) * (1 - 2 * success_prob)
-  k4 = n_trials * success_prob * (1 - success_prob) * (1 - 6 * success_prob * (1 - success_prob))
-  k5 = n_trials * success_prob * (1 - success_prob) * (1 - 2 * success_prob) * (1 - 12 * success_prob + 12 * success_prob^2)
-  k6 = n_trials * success_prob * (1 - success_prob) * (1 - 30 * success_prob + 150 * success_prob^2 - 240 * success_prob^3 + 120 * success_prob^4)
-  return(c(k1, k2, k3, k4, k5, k6))
 }
 
 
@@ -429,3 +371,4 @@ central_moments <- function(n_trials,
 
   return(c(v1, v2, v3, v4, v5, v6))
 }
+

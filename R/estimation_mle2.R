@@ -47,37 +47,6 @@ mle2 <- function(samples,
 }
 
 
-#' Truncate a vector so that everything falls between the boundaries
-#'
-#' @param vec A vector
-#' @param UB The upper bound
-#' @param LB The lower bound
-#' @return The trunccated vector
-#' @export
-prob_fence <- function(vec, UB=1, LB=0){
-  return(pmax(LB, pmin(vec, UB)))
-}
-
-
-#' Transform a R2 vector from Cartisean coordinate to polar coordinate
-#'
-#' @param vec A vector
-#' @return The radius and the angle
-#' @export
-vector_to_theta_r <- function(vec)
-{
-  r = sqrt(sum(vec^2))
-  theta = atan(vec[2]/vec[1])
-  if((all(vec < 0)) | ((vec[2] > 0) & (vec[1] < 0)))
-  {
-    theta = theta + pi
-  }
-
-  return(list(r=r,
-              theta=theta))
-}
-
-
 #' Given a radius and an angle, compute the difference between the chisq stats
 #'
 #' This function is used for computing the joint confidence region based on
@@ -142,7 +111,7 @@ trace_contour <- function(theta1, theta2,
   theta = (theta1 + theta2)/2
   tryCatch(
     {
-      radius_info = uniroot.all(vec_diff_chisq,
+      radius_info = rootSolve::uniroot.all(vec_diff_chisq,
                                 theta=theta,
                                 solution_to_use=solution_to_use,
                                 solution_nllh=solution_nllh,
@@ -217,7 +186,7 @@ trace_confidence_region <- function(solution_to_use,
     theta = theta_r_pair[i, 1]
     tryCatch(
       {
-        radius_info = uniroot.all(vec_diff_chisq,
+        radius_info = rootSolve::uniroot.all(vec_diff_chisq,
                                   theta=theta,
                                   solution_to_use=solution_to_use,
                                   solution_nllh=solution_nllh,
@@ -251,5 +220,22 @@ trace_confidence_region <- function(solution_to_use,
 }
 
 
+profile_likelihood_chisq <- function(n_trials,
+                                     samples,
+                                     fixed_success_probs,
+                                     fixed_success_probs_index)
+{
+  n_grid <- 200
+  fixed_success_prob_grid <- seq(0,1,length.out=n_grid)
+  profile_ll <- numeric(n_grid)
+  for (j in 1:n_grid) {
+    profile_ll[j] <- -profile_log_likelihood(samples=samples,
+                                           n_trials=n_trials,
+                                           fixed_success_probs=fixed_success_prob_grid[j],
+                                           fixed_success_probs_index=fixed_success_probs_index)$ll
+  }
+  return(list("prob_grid"=fixed_success_prob_grid,
+              "chisq"=2*(profile_ll-min(profile_ll))))
+}
 
 

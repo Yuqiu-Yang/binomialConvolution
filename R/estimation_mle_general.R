@@ -1,65 +1,3 @@
-library(rootSolve)
-
-#' Converts a vector of probabilities into parameters
-#'
-#' As a constraint optimization problem is in general more difficult
-#' than an unconstraint one, we convert probabilities to numbers on the real line.
-#' This function further considers the order. If there is no order imposed,
-#' the probabilities are converted via the logit function.
-#' On the other hand, the largest probability will be transformed via the logit.
-#' The rest will be converted via the log of difference in logits.
-#' @param probs A vector of probabilities
-#' @param order_success_probs A vector specifying the order in descending order of probabilities
-#' @return The transformed parameters of the vector of probabilities
-#' @export
-probs_to_par <- function(probs,
-                         order_success_probs = NULL)
-{
-  if(is.null(order_success_probs))
-  {
-    par = log(probs/(1-probs))
-  }else{
-    n_trials = length(probs)
-    probs = probs[order_success_probs]
-    logits = log(probs/(1-probs))
-    par = c(logits[1], log(-diff(logits)))
-  }
-  return(par)
-}
-
-
-#' Converts a vector of parameters into probabilities
-#'
-#' As a constraint optimization problem is in general more difficult
-#' than an unconstraint one, we convert probabilities to numbers on the real line.
-#' This function further considers the order. If there is no order imposed,
-#' the probabilities are computed via the inverse logit function.
-#' On the other hand, the first parameter will be transformed via the inverse logit.
-#' The rest will be converted via the cumulative sum of exp of difference in logits and reordered.
-#' @param par A vector of parameters
-#' @param order_success_probs A vector specifying the order in descending order of probabilities
-#' @return The transformed probabilities of the vector of parameters
-#' @export
-par_to_probs <- function(par,
-                         order_success_probs = NULL)
-{
-  if(is.null(order_success_probs))
-  {
-    success_probs = 1/(1+exp(-par))
-  }else{
-    n_trials = length(par)
-    if(n_trials > 1)
-    {
-      par[2 : n_trials] = -exp(par[2 : n_trials])
-    }
-    success_probs_ordered = cumsum(par)
-    success_probs_ordered = 1/(1+exp(-success_probs_ordered))
-    success_probs = success_probs_ordered[order(order_success_probs)]
-  }
-  return(success_probs)
-}
-
-
 #' MLE of a given sample from a Binomial Convolution distribution
 #'
 #' This function computes the MLE of a BC model given a sample and
@@ -126,6 +64,102 @@ mle <- function(samples,
 }
 
 
+#' Profile log likelihood of a Binomial Convolution model
+#'
+#' Computes the MLE when a subset of the parameters are fixed
+#' This method is useful when constructing marginal confidence intervals/regions
+#' @param samples A sample from the BC distribution
+#' @param n_trials The number of trials for each component
+#' @param fixed_success_probs Probabilities of the fixed components
+#' @param fixed_success_probs_index The corresponding indecies of fixed_success_probs
+#' @param computation_method The method to compute the PMF
+#' @param return_mean If the results should be averaged over the sample
+#' @param initial_probs The initial guess of the non-fixed probabilities
+#' @return The MLE and the corresponding log likelihood
+#' @export
+profile_log_likelihood <- function(samples,
+                                   n_trials,
+                                   fixed_success_probs,
+                                   fixed_success_probs_index,
+                                   computation_method='convolution',
+                                   return_mean=FALSE,
+                                   initial_probs = NULL)
+{
+  if(! is.null(initial_probs))
+  {
+    # If an inital guess is supplied
+    # we convert it to parameters
+    par = probs_to_par(probs=initial_probs,
+                       order_success_probs=NULL)
+  }else{
+    # If an initial guess is not supplied,
+    # we use random guesses
+    par = rnorm(length(n_trials)-length(fixed_success_probs_index))
+  }
+
+  has_converged = FALSE
+  while(! has_converged)
+  {
+    results = optim(par=par,
+                    fn=log_likelihood_equality_constraint,
+                    n_trials=n_trials,
+                    samples=samples,
+                    fixed_success_probs=fixed_success_probs,
+                    fixed_success_probs_index=fixed_success_probs_index,
+                    computation_method=computation_method,
+                    return_mean=return_mean,
+                    control=list(fnscale=-1),
+                    method = "BFGS")
+    if(results$convergence != 0)
+    {
+      par = results$par
+    }else{
+      has_converged = TRUE
+    }
+  }
+  success_probs = par_to_probs(par=results$par,
+                               order_success_probs=NULL)
+  return(list(probs=success_probs,
+              ll=results$value))
+}
+
+
+#' Log likelihood that includes some fixed probabilities
+#'
+#' To compute profile likelihood, a subset of the components
+#' is fixed. This function facilitates this exact purpose.
+#' @param par Logits of non-fixed probabilities
+#' @param n_trials The number of trials for each component
+#' @param samples A sample from the BC distribution
+#' @param fixed_success_probs Probabilities of the fixed components
+#' @param fixed_success_probs_index The corresponding indecies of fixed_success_probs
+#' @param computation_method The method to compute the PMF
+#' @param return_mean If the results should be averaged over the sample
+#' @return The log likelihood
+#' @export
+log_likelihood_equality_constraint <- function(par,
+                                               n_trials,
+                                               samples,
+                                               fixed_success_probs,
+                                               fixed_success_probs_index,
+                                               computation_method='convolution',
+                                               return_mean=FALSE)
+{
+  all_indices = 1 : length(n_trials)
+  flexible_success_probs_index = setdiff(all_indices, fixed_success_probs_index)
+  flexible_success_probs = par_to_probs(par, order_success_probs = NULL)
+  success_probs = numeric(length(all_indices))
+  success_probs[fixed_success_probs_index] = fixed_success_probs
+  success_probs[flexible_success_probs_index] = flexible_success_probs
+
+  return(log_likelihood(success_probs=success_probs,
+                        n_trials=n_trials,
+                        samples=samples,
+                        computation_method=computation_method,
+                        return_mean=return_mean))
+}
+
+
 #' Computes the log likelihood with possible order constraint
 #'
 #' This function computes the log likelihood with order constraint
@@ -153,7 +187,6 @@ log_likelihood_order_constraint <- function(par,
                         computation_method=computation_method,
                         return_mean=return_mean))
 }
-
 
 
 #' Compute log likelihood
@@ -315,74 +348,3 @@ hessian <- function(success_probs,
   }
   return(hessian_result)
 }
-
-
-
-
-
-# library(plotly)
-# #' @export
-# objective_function_1 <- function(success_probs,
-#                                  n_trials,
-#                                  samples,
-#                                  mode = "mgf",
-#                                  weight_function=function(s){return(exp(-s^2))},
-#                                  lower_limit=-5,
-#                                  upper_limit=5)
-# {
-#   if(mode == "mgf")
-#   {
-#     egf = empirical_mgf(samples = samples)
-#     gf = theoretical_mgf(n_trials = n_trials,
-#                          success_probs = success_probs)
-#   }else{
-#     egf = empirical_cgf(samples = samples)
-#     gf = theoretical_cgf(n_trials = n_trials,
-#                           success_probs = success_probs)
-#   }
-#
-#   integrand = discrepancy_integrand(theoretical_gf=gf,
-#                                     empirical_gf=egf,
-#                                     weight_function=weight_function)
-#   discrepancy = compute_discrepancy(integrand=integrand,
-#                                     lower_limit=lower_limit,
-#                                     upper_limit=upper_limit)
-#   return(discrepancy)
-# }
-
-
-# #' @export
-# visualize_objective_function_1 <- function(success_probs,
-#                                            n_trials,
-#                                            samples,
-#                                            weight_function=function(s){return(exp(-s^2))},
-#                                            lower_limit=-5,
-#                                            upper_limit=5,
-#                                            grid_p1=seq(0, 1, length.out=50),
-#                                            grid_p2=seq(0, 1, length.out=50))
-# {
-#   n_p1 = length(grid_p1)
-#   n_p2 = length(grid_p2)
-#   dis_m = matrix(0, nrow=n_p1, ncol=n_p2)
-#   for(i in 1 : n_p1)
-#   {
-#     for(j in 1 : n_p2)
-#     {
-#       dis_m[i,j] = objective_function(ps=c(grid_p1[i], grid_p2[j]),
-#                                       n_trials=n_trials,
-#                                       samples=samples,
-#                                       weight_function=weight_function,
-#                                       lower_limit=lower_limit,
-#                                       upper_limit=upper_limit)
-#     }
-#   }
-#   plot_ly(x=grid_p1,
-#           y=grid_p2,
-#           z=dis_m,
-#           contours=list(z=list(show=TRUE,
-#                                start=0,
-#                                end=1,
-#                                size=0.02,
-#                                color="red"))) %>% add_surface()
-# }
-#

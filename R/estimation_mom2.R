@@ -1,10 +1,3 @@
-#' @export
-is_legit_solution <- function(est)
-{
-  return(all((est >= 0) & (est <= 1)))
-}
-
-
 #' Helper function for method of moment for a 2-component Binomial Convolution model
 #'
 #' This function performs method of moment for a 2-component model

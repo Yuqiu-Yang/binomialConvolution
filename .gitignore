@@ -52,11 +52,4 @@ rsconnect/
 # Desktop file
 .DS_Store
 inst/doc
-presentation/
-sample_size/
-data/
-summary/
-results/
-experimental/
 *.RData
-*.png
