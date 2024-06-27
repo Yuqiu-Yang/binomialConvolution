@@ -60,28 +60,22 @@ mle2 <- function(samples,
 #' @param sig_level The significance level
 #' @return The difference between chisq stats
 #' @export
-diff_chisq <- function(r, theta,
-                       solution_to_use,
-                       solution_nllh,
-                       n_trials,
-                       samples,
-                       sig_level=0.95)
-{
-  current_point = prob_fence(solution_to_use + r * c(cos(theta), sin(theta)))
+diff_chisq <- Vectorize(function(r, theta,
+                         solution_to_use,
+                         solution_nllh,
+                         n_trials,
+                         samples,
+                         sig_level=0.95)
+  {
+    current_point = prob_fence(solution_to_use + r * c(cos(theta), sin(theta)))
 
-  current_nllh = -log_likelihood(current_point,n_trials,samples)
+    current_nllh = -log_likelihood(current_point,n_trials,samples)
 
-  v = 2 * (current_nllh - solution_nllh)
+    v = 2 * (current_nllh - solution_nllh)
 
-  return(v - qchisq(sig_level, 2))
-}
-
-
-#' Vectorized version of diff_chisq
-#'
-#' @export
-vec_diff_chisq = Vectorize(diff_chisq,
-                           vectorize.args = "r")
+    return(v - qchisq(sig_level, 2))
+  },
+  vectorize.args = "r")
 
 
 #' Given two points, sample points in the middle to trace out the contour of the confidence region
@@ -111,7 +105,7 @@ trace_contour <- function(theta1, theta2,
   theta = (theta1 + theta2)/2
   tryCatch(
     {
-      radius_info = rootSolve::uniroot.all(vec_diff_chisq,
+      radius_info = rootSolve::uniroot.all(diff_chisq,
                                 theta=theta,
                                 solution_to_use=solution_to_use,
                                 solution_nllh=solution_nllh,
@@ -186,7 +180,7 @@ trace_confidence_region <- function(solution_to_use,
     theta = theta_r_pair[i, 1]
     tryCatch(
       {
-        radius_info = rootSolve::uniroot.all(vec_diff_chisq,
+        radius_info = rootSolve::uniroot.all(diff_chisq,
                                   theta=theta,
                                   solution_to_use=solution_to_use,
                                   solution_nllh=solution_nllh,
