@@ -214,6 +214,8 @@ trace_confidence_region <- function(solution_to_use,
 }
 
 
+#'
+#' @export
 profile_likelihood_chisq <- function(n_trials,
                                      samples,
                                      fixed_success_probs,
