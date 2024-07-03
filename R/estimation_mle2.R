@@ -214,7 +214,13 @@ trace_confidence_region <- function(solution_to_use,
 }
 
 
+#' Compute the chisq stat based on profile likelihood
 #'
+#' @param n_trials The number of trials for each component
+#' @param samples A sample from the BC distribution
+#' @param fixed_success_probs Probabilities of the fixed components
+#' @param fixed_success_probs_index The corresponding indecies of fixed_success_probs
+#' @returns The Chisq statistics
 #' @export
 profile_likelihood_chisq <- function(n_trials,
                                      samples,

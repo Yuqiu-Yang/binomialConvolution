@@ -2,7 +2,7 @@
 % Please edit documentation in R/distribution.R
 \name{rbinomconv}
 \alias{rbinomconv}
-\title{Simulate Binomial Convolution random variables}
+\title{Binomial Convolution random variables}
 \usage{
 rbinomconv(n, n_trials, success_probs)
 }
@@ -17,7 +17,5 @@ rbinomconv(n, n_trials, success_probs)
 A vector of length n_samples
 }
 \description{
-This function will generate a vector of Binomial Convolution
-random variables given the parameters of each binomial component:
-Mj and Pj
+Binomial Convolution random variables
 }
