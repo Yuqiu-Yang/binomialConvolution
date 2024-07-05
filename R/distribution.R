@@ -61,6 +61,14 @@ pbinomconv <- function(q,
   int_q = pmax(0, pmin(floor(q), sum(n_trials))) + 1
   result = s[int_q]
   result[ind_neg] = 0
+  if(!lower.tail)
+  {
+    result = 1 - result
+  }
+  if(log.p)
+  {
+    result = log(result)
+  }
   return(result)
 }
 
@@ -81,9 +89,21 @@ qbinomconv <- function(p,
 {
   pmf = binomial_convolution_pmf(n_trials=n_trials,
                                  success_probs=success_probs)
+  if(log.p)
+  {
+    p = exp(p)
+  }
   p = prob_fence(p-.Machine$double.eps)
   s = cumsum(pmf(0:sum(n_trials)))
-  result = v_last_which(x=s, p=p)-1
+  if(lower.tail)
+  {
+    result = v_first_which(x=s, p=p)-1
+  }else{
+    s=1-s
+    s[length(s)] = 0
+    result = v_last_which(x=s, p=p)
+  }
+
   return(result)
 }
 

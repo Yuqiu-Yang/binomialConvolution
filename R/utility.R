@@ -110,13 +110,30 @@ vector_to_theta_r <- function(vec)
 #' @param x A vector
 #' @param p A vector
 #' @return The radius and the angle
-v_last_which <- Vectorize(FUN=function(x, p) {
+v_first_which <- Vectorize(FUN=function(x, p) {
   ind = which(x >= p)
   if(length(ind) > 0)
   {
     result = ind[1]
   }else{
     result = length(x)
+  }
+  return(result)
+}, vectorize.args = "p")
+
+
+#' Returns the index of the last element that is greater than p
+#'
+#' @param x A vector
+#' @param p A vector
+#' @return The radius and the angle
+v_last_which <- Vectorize(FUN=function(x, p) {
+  ind = which(x > p)
+  if(length(ind) > 0)
+  {
+    result = ind[length(ind)]
+  }else{
+    result = 0
   }
   return(result)
 }, vectorize.args = "p")

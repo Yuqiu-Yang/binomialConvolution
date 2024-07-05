@@ -2,7 +2,7 @@
 % Please edit documentation in R/utility.R
 \name{v_last_which}
 \alias{v_last_which}
-\title{Returns the index of the first element that is greater than or equal to p}
+\title{Returns the index of the last element that is greater than p}
 \usage{
 v_last_which(x, p)
 }
@@ -15,5 +15,5 @@ v_last_which(x, p)
 The radius and the angle
 }
 \description{
-Returns the index of the first element that is greater than or equal to p
+Returns the index of the last element that is greater than p
 }
