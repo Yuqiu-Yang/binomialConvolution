@@ -8,7 +8,7 @@ Given the number of components $J$, the number of trials $\mathbf{M} = [M_1, \cd
 
 $Y = \sum_{j=1}^JX_j,$ 
 
-where $X_j \overset{ind}{\sim} \text{Binomial}(M_j, p_j)$
+where $X_j$'s are independent of each other and each follows Binomial $(M_j, p_j)$
 
 In this case, we say,
 $Y \sim \text{BC}(\mathbf{M},~ \mathbf{p})$
