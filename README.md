@@ -16,6 +16,9 @@ $Y \sim \text{BC}(\mathbf{M},~ \mathbf{p})$
 
 This R packages provides several functionalities from simulation to estimation of parameters of a Binomial Convolution distribution.  
 
+> [!WARNING] 
+We are still actively working on the functions in the package. Proceed with caution. 
+
 ## Dependencies 
 
 - R>=4.0.2
