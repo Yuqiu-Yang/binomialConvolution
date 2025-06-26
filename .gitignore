@@ -53,3 +53,4 @@ rsconnect/
 .DS_Store
 inst/doc
 *.RData
+._*
